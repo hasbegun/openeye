@@ -7,7 +7,9 @@ help: ## Show this help
 
 # --- Docker ---
 
-up: ## Start all services
+up: ## Start all services (infra → init → apps)
+	$(COMPOSE) up -d nats postgres redis
+	$(COMPOSE) up nats-init
 	$(COMPOSE) up --build -d
 
 up-infra: ## Start infrastructure only (nats, postgres, redis)

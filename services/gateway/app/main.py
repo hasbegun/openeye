@@ -7,6 +7,7 @@ import uuid
 import nats
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from shared.config import ServiceConfig
 from shared.schemas import HealthResponse, FrameMessage, AnalysisResult
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     """Manage NATS connection lifecycle."""
     global nc
     nc = await nats.connect(config.nats.url)
+    app.state.nc = nc
     yield
     if nc:
         await nc.close()
@@ -33,6 +35,19 @@ app = FastAPI(
     version=config.version,
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+from app.ws.stream import router as ws_router
+from app.routers.alerts import router as alerts_router
+app.include_router(ws_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health", response_model=HealthResponse)

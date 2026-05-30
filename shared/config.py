@@ -83,6 +83,23 @@ class AlertConfig(BaseSettings):
         return [url.strip() for url in self.webhook_urls.split(",") if url.strip()]
 
 
+class IngestorConfig(BaseSettings):
+    """Ingestor configuration for video source management."""
+    model_config = SettingsConfigDict(env_prefix="INGESTOR_")
+
+    sources: str = ""  # Comma-separated RTSP URLs or device indices (e.g. "0,rtsp://cam1/stream")
+    fps: float = 1.0  # Frames per second to extract
+    jpeg_quality: int = 85  # JPEG encoding quality (0-100)
+    max_width: int = 1280  # Resize frames wider than this
+    reconnect_delay: float = 5.0  # Seconds to wait before reconnecting on failure
+
+    @property
+    def source_list(self) -> list[str]:
+        if not self.sources:
+            return []
+        return [s.strip() for s in self.sources.split(",") if s.strip()]
+
+
 class ServiceConfig(BaseSettings):
     """Base service configuration."""
     model_config = SettingsConfigDict(env_prefix="OPENEYE_", protected_namespaces=("settings_",))
@@ -98,3 +115,4 @@ class ServiceConfig(BaseSettings):
     model: ModelConfig = ModelConfig()
     guardrails: GuardrailsConfig = GuardrailsConfig()
     alert: AlertConfig = AlertConfig()
+    ingestor: IngestorConfig = IngestorConfig()

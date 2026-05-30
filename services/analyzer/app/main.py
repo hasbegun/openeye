@@ -16,6 +16,7 @@ logger = logging.getLogger("analyzer")
 
 config = ServiceConfig()
 shutdown_event = asyncio.Event()
+js = None
 
 
 async def handle_rpc_analyze(msg):
@@ -33,6 +34,10 @@ async def handle_rpc_analyze(msg):
 
         await msg.respond(result.model_dump_json().encode())
         logger.info(f"Analyzed frame {frame.frame_id}: severity={result.severity}")
+
+        # Publish to JetStream for async consumers (alerter)
+        if js and result.severity > 0:
+            await js.publish("analysis.results", result.model_dump_json().encode())
     except Exception as e:
         logger.error(f"Error processing rpc.analyze: {e}")
         error_result = AnalysisResult(
@@ -48,7 +53,9 @@ async def handle_rpc_analyze(msg):
 
 async def run():
     """Main service loop — connect to NATS and process analysis requests."""
+    global js
     nc = await nats.connect(config.nats.url)
+    js = nc.jetstream()
     logger.info("Analyzer service connected to NATS")
 
     await nc.subscribe("rpc.analyze", cb=handle_rpc_analyze)

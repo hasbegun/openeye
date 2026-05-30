@@ -58,7 +58,6 @@ async def analyze_image(
         api_key=config.api_key,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
-        response_format={"type": "json_object"},
     )
 
     raw_content = response.choices[0].message.content
@@ -68,12 +67,43 @@ async def analyze_image(
     return parsed
 
 
+def _extract_json(raw: str) -> Optional[str]:
+    """Extract JSON from model response, handling markdown fences and extra text."""
+    import re
+
+    # Try raw string first
+    stripped = raw.strip()
+    if stripped.startswith("{"):
+        return stripped
+
+    # Try extracting from markdown code fences
+    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", stripped, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    # Try finding first { to last }
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return stripped[start : end + 1]
+
+    return None
+
+
 def _parse_response(raw: str, frame_id: str, source_id: str) -> AnalysisResult:
     """Parse model JSON response into AnalysisResult."""
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        logger.warning(f"Failed to parse JSON from model response: {raw[:200]}")
+    json_str = _extract_json(raw) if raw else None
+
+    if json_str:
+        try:
+            data = json.loads(json_str)
+        except json.JSONDecodeError:
+            data = None
+    else:
+        data = None
+
+    if data is None:
+        logger.warning(f"Failed to parse JSON from model response: {raw[:200] if raw else 'None'}")
         return AnalysisResult(
             frame_id=frame_id,
             source_id=source_id,
