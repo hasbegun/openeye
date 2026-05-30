@@ -1,0 +1,48 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      - NATS_URL=nats://nats:4222
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=openeye
+      - DB_PASSWORD=openeye_dev
+      - DB_DATABASE=openeye
+      - MODEL_API_BASE=http://host.docker.internal:11434
+    volumes:
+      - ./shared:/app/shared
+      - ./services:/app/services
+      - ./conftest.py:/app/conftest.py
+      - ./pytest.ini:/app/pytest.ini
+    depends_on:
+      nats:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: openeye
+      POSTGRES_PASSWORD: openeye_dev
+      POSTGRES_DB: openeye
+    volumes:
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openeye"]
+      interval: 3s
+      timeout: 2s
+      retries: 5
