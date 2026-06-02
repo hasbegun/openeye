@@ -2,6 +2,7 @@
 
 import base64
 import json
+import os
 import uuid
 
 import nats
@@ -53,6 +54,14 @@ app.include_router(alerts_router)
 @app.get("/health", response_model=HealthResponse)
 async def health():
     return HealthResponse(service="gateway", version=config.version)
+
+
+@app.get("/config/models")
+async def get_models():
+    """Return available LLM models from LLM_MODELS env var."""
+    raw = os.environ.get("LLM_MODELS", "llava")
+    models = [m.strip() for m in raw.split(",") if m.strip()]
+    return {"models": models}
 
 
 @app.post("/analyze", response_model=AnalysisResult)

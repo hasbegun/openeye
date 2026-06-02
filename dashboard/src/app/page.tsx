@@ -1,17 +1,41 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, Shield, Activity, Bell } from "lucide-react";
-import { fetchAlerts, fetchHealth, fetchAlertCount } from "@/lib/api";
+import { Eye, Bell, Wifi } from "lucide-react";
+import { fetchAlerts, fetchHealth, fetchAlertCount, fetchModels } from "@/lib/api";
 import type { Alert, HealthStatus } from "@/lib/api";
 import { AlertCard } from "@/components/alert-card";
 import { WebcamFeed } from "@/components/webcam-feed";
+import { ConfigDropdown } from "@/components/config-dropdown";
+import type { AppConfig } from "@/components/config-dropdown";
+
+const CONFIG_KEY = "openeye-config";
+
+function loadConfig(): AppConfig {
+  if (typeof window === "undefined") return { modelName: "llava", alarmEmail: "", saveClip: true };
+  try {
+    const stored = localStorage.getItem(CONFIG_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return { modelName: "llava", alarmEmail: "", saveClip: true };
+}
 
 export default function Home() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [alertCount, setAlertCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [appConfig, setAppConfig] = useState<AppConfig>(loadConfig);
+  const [models, setModels] = useState<string[]>(["llava"]);
+
+  function handleConfigSave(cfg: AppConfig) {
+    setAppConfig(cfg);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+  }
+
+  useEffect(() => {
+    fetchModels().then(setModels).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -37,27 +61,29 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="mb-8 flex items-center gap-3">
-        <Eye className="text-emerald-400" size={32} />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">OpenEye</h1>
-          <p className="text-sm text-gray-400">AI-Powered Security Monitor</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Eye className="text-emerald-400" size={32} />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">OpenEye</h1>
+            <p className="text-sm text-gray-400">AI-Powered Security Monitor</p>
+          </div>
         </div>
+        <ConfigDropdown
+          version={health?.version || "0.1.0"}
+          config={appConfig}
+          models={models}
+          onSave={handleConfigSave}
+        />
       </div>
 
       {/* Status Cards */}
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatusCard
-          icon={<Activity size={20} />}
+          icon={<Wifi size={20} />}
           label="System"
           value={health ? "Online" : "Offline"}
           color={health ? "text-emerald-400" : "text-red-400"}
-        />
-        <StatusCard
-          icon={<Shield size={20} />}
-          label="Version"
-          value={health?.version || "—"}
-          color="text-blue-400"
         />
         <StatusCard
           icon={<Bell size={20} />}

@@ -57,6 +57,13 @@ export async function fetchHealth(): Promise<HealthStatus> {
   return res.json();
 }
 
+export async function fetchModels(): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/config/models`, { cache: "no-store" });
+  if (!res.ok) return ["llava"];
+  const data = await res.json();
+  return data.models || ["llava"];
+}
+
 export function getWebSocketUrl(): string {
   const wsBase = API_BASE.replace(/^http/, "ws");
   return `${wsBase}/ws/stream`;
